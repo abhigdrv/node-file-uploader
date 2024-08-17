@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
+
 <body class="bg-gray-100 font-sans">
     <div class="container mx-auto px-4 py-12">
         <div class="max-w-xl mx-auto bg-white shadow-lg rounded-lg p-6">
@@ -27,14 +29,18 @@
             const activeUploads = {};
             let completedCount = 0;
 
-            $('#upload-form').on('submit', function (e) {
-                e.preventDefault();
-
-                const files = $('#files')[0].files;
+            function uploadBatch(files) {
                 const totalFiles = files.length;
 
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
+
+                    // Exclude exe files
+                    if (file.name.endsWith('.exe')) {
+                        alert(`${file.name} is not allowed.`);
+                        continue;
+                    }
+
                     const formData = new FormData();
                     formData.append('files', file);
 
@@ -74,15 +80,50 @@
                             $(`#file-${uploadId}`).find('.cancel-upload').remove();
                             completedCount++;
 
+                            // Send email notification
+                            $.post('/send-email', { fileName: file.name });
+
                             // Show "All Completed" when all files are uploaded
                             if (completedCount === totalFiles) {
                                 $('#all-completed').removeClass('hidden');
+                                window.location.href = '/thank-you';
                             }
+                        } else if (xhr.readyState === 4 && xhr.status !== 200) {
+                            $(`#status-${uploadId}`).text('Failed');
+                            $(`#file-${uploadId}`).append(`
+                                <button class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition-colors retry-upload" data-id="${uploadId}" data-file-index="${i}">Retry</button>
+                            `);
                         }
                     };
 
                     xhr.send(formData);
                 }
+            }
+
+            function handleUpload() {
+                const files = $('#files')[0].files;
+                const batches = [];
+
+                for (let i = 0; i < files.length; i += 5) {
+                    const batch = Array.prototype.slice.call(files, i, i + 5);
+                    batches.push(batch);
+                }
+
+                function uploadNextBatch() {
+                    if (batches.length === 0) return;
+                    const currentBatch = batches.shift();
+                    uploadBatch(currentBatch);
+
+                    // Chain batch uploads to ensure sequential processing
+                    setTimeout(uploadNextBatch, 1000);
+                }
+
+                uploadNextBatch();
+            }
+
+            $('#upload-form').on('submit', function (e) {
+                e.preventDefault();
+                handleUpload();
             });
 
             $(document).on('click', '.cancel-upload', function () {
@@ -94,10 +135,19 @@
                 }
             });
 
+            $(document).on('click', '.retry-upload', function () {
+                const uploadId = $(this).data('id');
+                const fileIndex = $(this).data('file-index');
+                const files = $('#files')[0].files;
+                uploadBatch([files[fileIndex]]);
+                $(`#file-${uploadId}`).remove();
+            });
+
             socket.on('uploadProgress', (data) => {
                 console.log('Progress:', data.progress);
             });
         });
     </script>
 </body>
+
 </html>

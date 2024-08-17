@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Files</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto px-4 py-12">
+        <div class="max-w-xl mx-auto bg-white shadow-lg rounded-lg p-6">
+            <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Upload Files</h1>
+            <!-- <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Upload Files to <%= type %> <%= id %></h1> -->
+            <form id="upload-form" enctype="multipart/form-data" action="/upload/<%= type %>/<%= id %>" method="POST">
+                <input class="w-full px-3 py-2 mb-4 border rounded" type="file" name="files" id="files" multiple>
+                <button class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition-colors">Upload</button>
+            </form>
+            <div id="progress-container" class="mt-6 space-y-4"></div>
+            <p id="all-completed" class="text-green-600 font-semibold text-center mt-6 hidden">All Completed</p>
+            <a id="thank-you-link" href="/thank-you" class="hidden bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 transition-colors text-center block mt-6">Go to Thank You Page</a>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            const socket = io();
+            const activeUploads = {};
+            let completedCount = 0;
+            let totalFiles = $('#files')[0].files.length;
+            const batchSize = 5;
+
+            $('#files').on('change', function () {
+                totalFiles = this.files.length;
+                completedCount = 0; // Reset completed count when files change
+                $('#progress-container').empty(); // Clear previous progress
+                $('#all-completed').addClass('hidden');
+                $('#thank-you-link').addClass('hidden');
+            });
+
+            $('#upload-form').on('submit', function (e) {
+                e.preventDefault();
+
+                const files = $('#files')[0].files;
+                const fileArray = Array.from(files);
+                const batches = [];
+
+                for (let i = 0; i < fileArray.length; i += batchSize) {
+                    batches.push(fileArray.slice(i, i + batchSize));
+                }
+
+                const uploadBatch = (batch) => {
+                    batch.forEach((file, index) => {
+                        const formData = new FormData();
+                        formData.append('files', file);
+
+                        const uploadId = Date.now() + '_' + index;
+
+                        const fileContainer = $(`
+                            <div class="bg-white p-4 rounded-lg shadow-md flex items-center justify-between" id="file-${uploadId}">
+                                <div>
+                                    <p class="font-semibold text-gray-800">${file.name}</p>
+                                    <div class="relative pt-1">
+                                        <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
+                                            <div id="progress-bar-${uploadId}" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500"></div>
+                                        </div>
+                                    </div>
+                                    <p id="status-${uploadId}" class="text-sm text-gray-500"></p>
+                                </div>
+                                <div>
+                                    <button class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors cancel-upload hidden" data-id="${uploadId}">Cancel</button>
+                                    <button class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition-colors retry-upload hidden" data-id="${uploadId}">Retry</button>
+                                </div>
+                            </div>
+                        `);
+
+                        $('#progress-container').append(fileContainer);
+
+                        const xhr = new XMLHttpRequest();
+                        activeUploads[uploadId] = xhr;
+
+                        xhr.upload.addEventListener('progress', function (e) {
+                            if (e.lengthComputable) {
+                                const percentComplete = Math.round((e.loaded / e.total) * 100);
+                                $(`#progress-bar-${uploadId}`).css('width', percentComplete + '%');
+                                $(`#file-${uploadId}`).find('.cancel-upload').removeClass('hidden');
+                            }
+                        }, false);
+
+                        xhr.open('POST', $(this).attr('action'), true);
+                        xhr.onreadystatechange = function () {
+                            if (xhr.readyState === 4) {
+                                if (xhr.status === 200) {
+                                    $(`#status-${uploadId}`).text('Completed');
+                                    $(`#file-${uploadId}`).find('.cancel-upload').remove();
+                                    $(`#file-${uploadId}`).find('.retry-upload').remove();
+                                    completedCount++;
+
+                                    // Show "All Completed" when all files are uploaded
+                                    console.log(completedCount, totalFiles , 'completedCount, totalFiles');
+                                    if (completedCount === totalFiles) {
+                                        $('#all-completed').removeClass('hidden');
+                                        $('#thank-you-link').removeClass('hidden');
+                                    }
+                                } else {
+                                    $(`#status-${uploadId}`).text('Failed');
+                                    $(`#file-${uploadId}`).find('.retry-upload').removeClass('hidden');
+                                }
+                            }
+                        };
+
+                        xhr.send(formData);
+                    });
+                };
+
+                const processBatches = (batches) => {
+                    if (batches.length === 0) return;
+
+                    const batch = batches.shift();
+                    uploadBatch(batch);
+
+                    // Process the next batch after a short delay
+                    setTimeout(() => processBatches(batches), 1000); // Adjust the delay if needed
+                };
+
+                processBatches(batches);
+            });
+
+            $(document).on('click', '.cancel-upload', function () {
+                const uploadId = $(this).data('id');
+                if (activeUploads[uploadId]) {
+                    activeUploads[uploadId].abort();
+                    $(`#file-${uploadId}`).remove();
+                    delete activeUploads[uploadId];
+                }
+            });
+
+            $(document).on('click', '.retry-upload', function () {
+                const uploadId = $(this).data('id');
+                const fileIndex = $(this).data('file-index');
+                const files = $('#files')[0].files;
+
+                const file = files[fileIndex];
+                const formData = new FormData();
+                formData.append('files', file);
+
+                const xhr = new XMLHttpRequest();
+                activeUploads[uploadId] = xhr;
+
+                const fileContainer = $(`
+                    <div class="bg-white p-4 rounded-lg shadow-md flex items-center justify-between" id="file-${uploadId}">
+                        <div>
+                            <p class="font-semibold text-gray-800">${file.name}</p>
+                            <div class="relative pt-1">
+                                <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
+                                    <div id="progress-bar-${uploadId}" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500"></div>
+                                </div>
+                            </div>
+                            <p id="status-${uploadId}" class="text-sm text-gray-500"></p>
+                        </div>
+                        <div>
+                            <button class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors cancel-upload" data-id="${uploadId}">Cancel</button>
+                            <button class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition-colors retry-upload hidden" data-id="${uploadId}">Retry</button>
+                        </div>
+                    </div>
+                `);
+
+                $(`#file-${uploadId}`).replaceWith(fileContainer);
+
+                xhr.upload.addEventListener('progress', function (e) {
+                    if (e.lengthComputable) {
+                        const percentComplete = Math.round((e.loaded / e.total) * 100);
+                        $(`#progress-bar-${uploadId}`).css('width', percentComplete + '%');
+                    }
+                }, false);
+
+                xhr.open('POST', $(this).closest('form').attr('action'), true);
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            $(`#status-${uploadId}`).text('Completed');
+                            $(`#file-${uploadId}`).find('.cancel-upload').remove();
+                            $(`#file-${uploadId}`).find('.retry-upload').remove();
+                            completedCount++;
+
+                            // Show "All Completed" when all files are uploaded
+                            if (completedCount === totalFiles) {
+                                $('#all-completed').removeClass('hidden');
+                                $('#thank-you-link').removeClass('hidden');
+                            }
+                        } else {
+                            $(`#status-${uploadId}`).text('Failed');
+                        }
+                    }
+                };
+
+                xhr.send(formData);
+            });
+
+            socket.on('uploadProgress', (data) => {
+                console.log('Progress:', data.progress);
+            });
+        });
+    </script>
+</body>
+</html>

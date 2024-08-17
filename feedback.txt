@@ -1,0 +1,7 @@
+1. After uploading all file redirect to thank you page. Show button now you can close.
+2. Send email alert after successful upload.
+3. All file type will be allowed except (exe)
+4. Add retry button in case of failure
+5. Upload image in batch of 5 images
+7. OrderId/Received/[images]
+8. OrderId/Completed/[images]
