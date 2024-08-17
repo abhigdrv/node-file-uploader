@@ -12,7 +12,21 @@
             <h1 class="text-3xl font-bold text-gray-800 mb-4">Welcome to Our Uploader</h1>
             <p class="text-gray-600 text-lg mb-6">We are thrilled to have you here! Our uploader is designed to provide you with a seamless and efficient way to manage your files. With a user-friendly interface and advanced features, you can effortlessly upload, track, and manage your files with ease.</p>
             <p class="text-gray-600 text-lg mb-6">Whether you're sharing documents, images, or other files, our platform ensures that your uploads are handled with the highest level of security and reliability. Start your file upload journey with us and experience the convenience and efficiency of our modern uploader.</p>
+            <div id="error-message" class="hidden text-red-600 text-lg mt-4"></div>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const errorMessage = urlParams.get('error');
+
+            if (errorMessage) {
+                const errorDiv = document.getElementById('error-message');
+                errorDiv.textContent = decodeURIComponent(errorMessage);
+                errorDiv.classList.remove('hidden');
+            }
+        });
+    </script>
 </body>
 </html>

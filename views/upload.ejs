@@ -9,7 +9,7 @@
 <body class="bg-gray-100 font-sans">
     <div class="container mx-auto px-4 py-12">
         <div class="max-w-xl mx-auto bg-white shadow-lg rounded-lg p-6">
-            <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Upload Files</h1>
+            <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Upload Files <span id="serviceName"></span></h1>
             <!-- <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Upload Files to <%= type %> <%= id %></h1> -->
             <form id="upload-form" enctype="multipart/form-data" action="/upload/<%= type %>/<%= id %>" method="POST">
                 <input class="w-full px-3 py-2 mb-4 border rounded" type="file" name="files" id="files" multiple>
@@ -30,6 +30,40 @@
             let completedCount = 0;
             let totalFiles = $('#files')[0].files.length;
             const batchSize = 5;
+
+            const actionUrl = $('#upload-form').attr('action');
+            const regex = /\/upload\/([^\/]+)\/([^\/]+)/;
+            const matches = actionUrl.match(regex);
+            if (matches) {
+                const type = matches[1];
+                const id = matches[2];                
+                if (type === 'orders' || type === 'freetrails') {
+                    // Call the API with the extracted type and id
+                    fetch(`https://oes.pinnacleedits.com/api/${type}/${id}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('It seems like your order/free trail is not generated yet!');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data && data.id) {
+                                document.getElementById('serviceName').innerText = `for ${data.service}`;
+                            } else {
+                                window.location.href = '/?error=It seems like your order/free trail is not generated yet!';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error fetching API:', error);
+                            window.location.href = `/?error=Error fetching API with ${error}`;
+                        });
+                }else{
+                    window.location.href = '/?error=Page Not Found';
+                }
+            } else {
+                console.error('Unable to extract type and id from the form action URL.');
+                window.location.href = '/';
+            }
 
             $('#files').on('change', function () {
                 totalFiles = this.files.length;
