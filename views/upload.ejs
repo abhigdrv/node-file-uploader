@@ -50,19 +50,19 @@
                             if (data && data.id) {
                                 document.getElementById('serviceName').innerText = `for ${data.service}`;
                             } else {
-                                window.location.href = '/?error=It seems like your order/free trail is not generated yet!';
+                                // window.location.href = '/?error=It seems like your order/free trail is not generated yet!';
                             }
                         })
                         .catch(error => {
                             console.error('Error fetching API:', error);
-                            window.location.href = `/?error=Error fetching API with ${error}`;
+                            // window.location.href = `/?error=Error fetching API with ${error}`;
                         });
                 }else{
-                    window.location.href = '/?error=Page Not Found';
+                    // window.location.href = '/?error=Page Not Found';
                 }
             } else {
                 console.error('Unable to extract type and id from the form action URL.');
-                window.location.href = '/';
+                // window.location.href = '/?error=Unable to extract type and id from the form action URL.';
             }
 
             $('#files').on('change', function () {
