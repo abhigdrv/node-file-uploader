@@ -1,153 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern File Upload</title>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <title>Welcome to Our Uploader</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-
 <body class="bg-gray-100 font-sans">
-    <div class="container mx-auto px-4 py-12">
-        <div class="max-w-xl mx-auto bg-white shadow-lg rounded-lg p-6">
-            <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Upload Multiple Files</h1>
-            <form id="upload-form" enctype="multipart/form-data">
-                <input class="w-full px-3 py-2 mb-4 border rounded" type="file" name="files" id="files" multiple>
-                <button class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition-colors">Upload</button>
-            </form>
-            <div id="progress-container" class="mt-6 space-y-4"></div>
-            <p id="all-completed" class="text-green-600 font-semibold text-center mt-6 hidden">All Completed</p>
+    <div class="flex items-center justify-center min-h-screen px-4 py-6">
+        <div class="max-w-lg w-full bg-white shadow-lg rounded-lg p-8 text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">Welcome to Our Uploader</h1>
+            <p class="text-gray-600 text-lg mb-6">We are thrilled to have you here! Our uploader is designed to provide you with a seamless and efficient way to manage your files. With a user-friendly interface and advanced features, you can effortlessly upload, track, and manage your files with ease.</p>
+            <p class="text-gray-600 text-lg mb-6">Whether you're sharing documents, images, or other files, our platform ensures that your uploads are handled with the highest level of security and reliability. Start your file upload journey with us and experience the convenience and efficiency of our modern uploader.</p>
         </div>
     </div>
-
-    <script>
-        $(document).ready(function () {
-            const socket = io();
-            const activeUploads = {};
-            let completedCount = 0;
-
-            function uploadBatch(files) {
-                const totalFiles = files.length;
-
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-
-                    // Exclude exe files
-                    if (file.name.endsWith('.exe')) {
-                        alert(`${file.name} is not allowed.`);
-                        continue;
-                    }
-
-                    const formData = new FormData();
-                    formData.append('files', file);
-
-                    const uploadId = Date.now() + '_' + i;
-
-                    const fileContainer = $(`
-                        <div class="bg-white p-4 rounded-lg shadow-md flex items-center justify-between" id="file-${uploadId}">
-                            <div>
-                                <p class="font-semibold text-gray-800">${file.name}</p>
-                                <div class="relative pt-1">
-                                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
-                                        <div id="progress-bar-${uploadId}" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500"></div>
-                                    </div>
-                                </div>
-                                <p id="status-${uploadId}" class="text-sm text-gray-500"></p>
-                            </div>
-                            <button class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors cancel-upload" data-id="${uploadId}">Cancel</button>
-                        </div>
-                    `);
-
-                    $('#progress-container').append(fileContainer);
-
-                    const xhr = new XMLHttpRequest();
-                    activeUploads[uploadId] = xhr;
-
-                    xhr.upload.addEventListener('progress', function (e) {
-                        if (e.lengthComputable) {
-                            const percentComplete = Math.round((e.loaded / e.total) * 100);
-                            $(`#progress-bar-${uploadId}`).css('width', percentComplete + '%');
-                        }
-                    }, false);
-
-                    xhr.open('POST', '/upload', true);
-                    xhr.onreadystatechange = function () {
-                        if (xhr.readyState === 4 && xhr.status === 200) {
-                            $(`#status-${uploadId}`).text('Completed');
-                            $(`#file-${uploadId}`).find('.cancel-upload').remove();
-                            completedCount++;
-
-                            // Send email notification
-                            $.post('/send-email', { fileName: file.name });
-
-                            // Show "All Completed" when all files are uploaded
-                            if (completedCount === totalFiles) {
-                                $('#all-completed').removeClass('hidden');
-                                window.location.href = '/thank-you';
-                            }
-                        } else if (xhr.readyState === 4 && xhr.status !== 200) {
-                            $(`#status-${uploadId}`).text('Failed');
-                            $(`#file-${uploadId}`).append(`
-                                <button class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition-colors retry-upload" data-id="${uploadId}" data-file-index="${i}">Retry</button>
-                            `);
-                        }
-                    };
-
-                    xhr.send(formData);
-                }
-            }
-
-            function handleUpload() {
-                const files = $('#files')[0].files;
-                const batches = [];
-
-                for (let i = 0; i < files.length; i += 5) {
-                    const batch = Array.prototype.slice.call(files, i, i + 5);
-                    batches.push(batch);
-                }
-
-                function uploadNextBatch() {
-                    if (batches.length === 0) return;
-                    const currentBatch = batches.shift();
-                    uploadBatch(currentBatch);
-
-                    // Chain batch uploads to ensure sequential processing
-                    setTimeout(uploadNextBatch, 1000);
-                }
-
-                uploadNextBatch();
-            }
-
-            $('#upload-form').on('submit', function (e) {
-                e.preventDefault();
-                handleUpload();
-            });
-
-            $(document).on('click', '.cancel-upload', function () {
-                const uploadId = $(this).data('id');
-                if (activeUploads[uploadId]) {
-                    activeUploads[uploadId].abort();
-                    $(`#file-${uploadId}`).remove();
-                    delete activeUploads[uploadId];
-                }
-            });
-
-            $(document).on('click', '.retry-upload', function () {
-                const uploadId = $(this).data('id');
-                const fileIndex = $(this).data('file-index');
-                const files = $('#files')[0].files;
-                uploadBatch([files[fileIndex]]);
-                $(`#file-${uploadId}`).remove();
-            });
-
-            socket.on('uploadProgress', (data) => {
-                console.log('Progress:', data.progress);
-            });
-        });
-    </script>
 </body>
-
 </html>
