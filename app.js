@@ -67,18 +67,35 @@ app.post('/upload/:folder/:id', upload.array('files'), (req, res) => {
 // Route to send email
 app.post('/send-email', (req, res) => {
   const transporter = nodemailer.createTransport({
-    service: 'Gmail',
+    service: "Gmail",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
     auth: {
-      user: 'your-email@gmail.com',
-      pass: 'your-email-password'
+      user: 'support@pinnacleedits.com',
+      pass: 'zrlq pasx cviu uwod'
     }
   });
 
   const mailOptions = {
-    from: 'your-email@gmail.com',
-    to: 'recipient@example.com',
-    subject: 'File Uploaded Successfully',
-    text: `File uploaded: ${req.body.fileName}`
+    from: 'support@pinnacleedits.com',
+    to: req.body.email,
+    bcc: 'workfinance2020@gmail.com',
+    subject: `Pinnacle Edits - Order Images Uploaded - ${req.body.orderNo}`,
+    text: `
+Thank You!,
+
+You successfully uploaded ${req.body.totalFiles} images for Order ( ${req.body.orderNo} )
+
+You may continue to upload additional files or view a list of the uploaded files by visiting your Dashboard and clicking the Upload button.
+
+If you have any questions about our services, please feel free to contact us on support@pinnacleedits.com .
+
+Sincerely,
+Pinnacle Edits
+Email: support@pinnacleedits.com
+Skype Id : live:.cid.676ec97f3452e8cc | +1 424 255 7675
+`
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
