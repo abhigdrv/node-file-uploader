@@ -80,7 +80,7 @@ app.post('/send-email', (req, res) => {
   const mailOptions = {
     from: 'support@pinnacleedits.com',
     to: req.body.email,
-    bcc: 'workfinance2020@gmail.com',
+    bcc: 'support@pinnacleedits.com',
     subject: `Pinnacle Edits - Order Images Uploaded - ${req.body.orderNo}`,
     text: `
 Thank You!,
