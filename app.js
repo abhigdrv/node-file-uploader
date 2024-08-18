@@ -16,8 +16,12 @@ app.use(cors());
 
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(bodyParser.json({ limit: '102mb' }));
+app.use(bodyParser.urlencoded({ limit: '102mb', extended: true }));
+
+// app.use(bodyParser.json());
+// app.use(bodyParser.urlencoded({ extended: true }));
 
 // Storage configuration for multer
 const storage = multer.diskStorage({
