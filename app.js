@@ -7,6 +7,7 @@ const nodemailer = require('nodemailer');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
@@ -73,7 +74,7 @@ app.post('/send-email', (req, res) => {
     secure: true,
     auth: {
       user: 'support@pinnacleedits.com',
-      pass: 'zrlq pasx cviu uwod'
+      pass: process.env.PASS
     }
   });
 
